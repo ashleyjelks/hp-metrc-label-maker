@@ -1,0 +1,12 @@
+{
+  "name": "hp-label-generator",
+  "version": "1.0.0",
+  "description": "High Priestess Wellness – METRC Label Generator",
+  "scripts": {
+    "dev": "netlify dev"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "busboy": "^1.6.0"
+  }
+}

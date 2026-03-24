@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HP Wellness — Label Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --noir:   #371F1D;
+      --smoke:  #DFD8CF;
+      --portal: #C5C59F;
+      --ash:    #BE5B2C;
+      --blush:  #E8D5CC;
+      --bg:     #F5F1EC;
+    }
+    body {
+      background: var(--bg);
+      color: var(--noir);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem 5rem;
+    }
+    header { text-align: center; margin-bottom: 3rem; }
+    header h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.4rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--noir);
+      line-height: 1.1;
+    }
+    header p {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ash);
+      margin-top: 0.5rem;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid var(--smoke);
+      border-radius: 2px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 520px;
+    }
+    .section-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--ash);
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--smoke);
+    }
+    .field { margin-bottom: 1.25rem; }
+    .field-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 0.4rem;
+    }
+    label {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--noir);
+      opacity: 0.7;
+    }
+    .optional-tag {
+      font-size: 0.6rem;
+      letter-spacing: 0.08em;
+      color: var(--portal);
+      text-transform: uppercase;
+    }
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--smoke);
+      border-radius: 2px;
+      padding: 0.65rem 0.75rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--noir);
+      transition: border-color 0.15s;
+      outline: none;
+    }
+    input:focus { border-color: var(--portal); }
+    input.optional { opacity: 0.6; }
+    input.optional:focus,
+    input.optional:not(:placeholder-shown) { opacity: 1; }
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .size-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 0.75rem;
+      align-items: end;
+    }
+    .size-unit {
+      font-size: 0.72rem;
+      padding-bottom: 0.75rem;
+      opacity: 0.5;
+      white-space: nowrap;
+    }
+    .upload-area {
+      border: 1.5px dashed var(--portal);
+      border-radius: 2px;
+      padding: 1.75rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      position: relative;
+    }
+    .upload-area:hover,
+    .upload-area.dragover { background: var(--blush); border-color: var(--ash); }
+    .upload-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .upload-icon { font-size: 1.8rem; margin-bottom: 0.5rem; display: block; }
+    .upload-text { font-size: 0.72rem; letter-spacing: 0.06em; color: var(--noir); opacity: 0.6; }
+    .upload-name { font-size: 0.75rem; color: var(--ash); margin-top: 0.5rem; font-weight: 500; }
+    .divider { border: none; border-top: 1px solid var(--smoke); margin: 2rem 0; }
+    button[type="submit"] {
+      width: 100%;
+      background: var(--noir);
+      color: var(--smoke);
+      border: none;
+      border-radius: 2px;
+      padding: 1rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+    }
+    button[type="submit"]:hover { background: var(--ash); color: #fff; }
+    button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    .spinner.active { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status {
+      margin-top: 1rem;
+      font-size: 0.72rem;
+      text-align: center;
+      min-height: 1.2em;
+      letter-spacing: 0.06em;
+    }
+    .status.error   { color: #c0392b; }
+    .status.success { color: #2d6a4f; }
+    footer {
+      margin-top: 3rem;
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--noir);
+      opacity: 0.3;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>High Priestess</h1>
+    <p>METRC Label Generator</p>
+  </header>
+
+  <div class="card">
+    <form id="labelForm">
+
+      <p class="section-label">Label Size</p>
+      <div class="field">
+        <div class="size-row">
+          <div>
+            <div class="field-header"><label for="labelWidth">Width</label></div>
+            <input type="number" id="labelWidth" name="labelWidth" value="2.25" step="0.05" min="1" max="6" />
+          </div>
+          <div>
+            <div class="field-header"><label for="labelHeight">Height</label></div>
+            <input type="number" id="labelHeight" name="labelHeight" value="1" step="0.05" min="0.5" max="4" />
+          </div>
+          <div class="size-unit">inches</div>
+        </div>
+      </div>
+
+      <hr class="divider" />
+
+      <p class="section-label">Product Info</p>
+
+      <div class="field">
+        <div class="field-header"><label for="productName">Strain Name</label></div>
+        <input type="text" id="productName" name="productName" placeholder="e.g. Marrakech Kush" required />
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <div class="field-header">
+            <label for="unitWeight">Unit Weight</label>
+            <span class="optional-tag">optional</span>
+          </div>
+          <input class="optional" type="text" id="unitWeight" name="unitWeight" placeholder="0.7g" />
+        </div>
+        <div class="field">
+          <div class="field-header">
+            <label for="totalWeight">Total Weight</label>
+            <span class="optional-tag">optional</span>
+          </div>
+          <input class="optional" type="text" id="totalWeight" name="totalWeight" placeholder="5g" />
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <div class="field-header">
+            <label for="totalThc">Total THC %</label>
+            <span class="optional-tag">optional</span>
+          </div>
+          <input class="optional" type="text" id="totalThc" name="totalThc" placeholder="19.17%" />
+        </div>
+        <div class="field">
+          <div class="field-header">
+            <label for="totalCbd">Total CBD %</label>
+            <span class="optional-tag">optional</span>
+          </div>
+          <input class="optional" type="text" id="totalCbd" name="totalCbd" placeholder="0.5%" />
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <div class="field-header">
+            <label for="expDate">Expiration Date</label>
+            <span class="optional-tag">optional</span>
+          </div>
+          <input class="optional" type="text" id="expDate" name="expDate" placeholder="11/10/2026" />
+        </div>
+        <div class="field">
+          <div class="field-header">
+            <label for="lotNumber">Lot Number</label>
+            <span class="optional-tag">optional</span>
+          </div>
+          <input class="optional" type="text" id="lotNumber" name="lotNumber" placeholder="HPHW-PR-1124-03" />
+        </div>
+      </div>
+
+      <hr class="divider" />
+
+      <p class="section-label">QR Codes</p>
+
+      <div class="field">
+        <div class="upload-area" id="uploadArea">
+          <input type="file" id="qrPdf" name="qrPdf" accept=".pdf" required />
+          <span class="upload-icon">⬆</span>
+          <span class="upload-text">Drop METRC QR PDF here or click to browse</span>
+          <div class="upload-name" id="uploadName"></div>
+        </div>
+      </div>
+
+      <hr class="divider" />
+
+      <button type="submit" id="submitBtn">
+        <span class="spinner" id="spinner"></span>
+        <span id="btnText">Generate Labels</span>
+      </button>
+
+      <div class="status" id="status"></div>
+
+    </form>
+  </div>
+
+  <footer>HP Wellness &nbsp;·&nbsp; OCM-PROC-24-000215</footer>
+
+  <script>
+    document.getElementById('qrPdf').addEventListener('change', function () {
+      document.getElementById('uploadName').textContent = this.files[0]?.name || '';
+    });
+
+    const area = document.getElementById('uploadArea');
+    area.addEventListener('dragover',  () => area.classList.add('dragover'));
+    area.addEventListener('dragleave', () => area.classList.remove('dragover'));
+    area.addEventListener('drop',      () => area.classList.remove('dragover'));
+
+    document.getElementById('labelForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const btn     = document.getElementById('submitBtn');
+      const spinner = document.getElementById('spinner');
+      const btnText = document.getElementById('btnText');
+      const status  = document.getElementById('status');
+
+      btn.disabled       = true;
+      spinner.classList.add('active');
+      btnText.textContent = 'Generating…';
+      status.textContent  = '';
+      status.className    = 'status';
+
+      try {
+        const res = await fetch('/.netlify/functions/generate-labels', {
+          method: 'POST',
+          body: new FormData(this),
+        });
+        if (!res.ok) throw new Error(await res.text());
+
+        const blob   = await res.blob();
+        const url    = URL.createObjectURL(blob);
+        const a      = document.createElement('a');
+        const strain = document.getElementById('productName').value.replace(/\s+/g, '_');
+        a.href       = url;
+        a.download   = `hp_labels_${strain}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        status.textContent = '✓ Labels downloaded!';
+        status.className   = 'status success';
+      } catch (err) {
+        status.textContent = `Error: ${err.message}`;
+        status.className   = 'status error';
+      } finally {
+        btn.disabled       = false;
+        spinner.classList.remove('active');
+        btnText.textContent = 'Generate Labels';
+      }
+    });
+  </script>
+
+</body>
+</html>
