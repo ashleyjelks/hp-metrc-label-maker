@@ -96,6 +96,26 @@
     input.optional { opacity: 0.6; }
     input.optional:focus,
     input.optional:not(:placeholder-shown) { opacity: 1; }
+
+    /* Calculated field — read-only styling */
+    input.calculated {
+      background: var(--blush);
+      border-color: var(--portal);
+      color: var(--noir);
+      opacity: 1;
+      cursor: default;
+      font-weight: 500;
+    }
+    input.calculated:focus { border-color: var(--ash); }
+    input.calculated::placeholder { color: var(--noir); opacity: 0.35; }
+
+    .calc-hint {
+      font-size: 0.6rem;
+      letter-spacing: 0.06em;
+      color: var(--portal);
+      margin-top: 0.3rem;
+    }
+
     .row-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -254,6 +274,24 @@
         </div>
       </div>
 
+      <!-- Calculated field: Total THC / package -->
+      <div class="field">
+        <div class="field-header">
+          <label for="totalThcPackage">Total THC / Package</label>
+          <span class="optional-tag">auto-calculated</span>
+        </div>
+        <input
+          class="calculated"
+          type="text"
+          id="totalThcPackage"
+          name="totalThcPackage"
+          placeholder="—"
+          readonly
+          tabindex="-1"
+        />
+        <p class="calc-hint">Total Weight (g) × THC% ÷ 100 × 1000 = mg</p>
+      </div>
+
       <div class="row-2">
         <div class="field">
           <div class="field-header">
@@ -299,6 +337,7 @@
   <footer>HP Wellness &nbsp;·&nbsp; OCM-PROC-24-000215</footer>
 
   <script>
+    // ── File upload display ──────────────────────────────────────────────────
     document.getElementById('qrPdf').addEventListener('change', function () {
       document.getElementById('uploadName').textContent = this.files[0]?.name || '';
     });
@@ -308,6 +347,37 @@
     area.addEventListener('dragleave', () => area.classList.remove('dragover'));
     area.addEventListener('drop',      () => area.classList.remove('dragover'));
 
+    // ── Total THC / package calculator ──────────────────────────────────────
+    function parseGrams(str) {
+      // Accept "5g", "5 g", "5.0", "5" — strips any non-numeric except dot
+      const n = parseFloat(str.replace(/[^\d.]/g, ''));
+      return isNaN(n) ? null : n;
+    }
+
+    function parsePct(str) {
+      // Accept "19.17%", "19.17", ".1917"
+      const n = parseFloat(str.replace(/[^\d.]/g, ''));
+      return isNaN(n) ? null : n;
+    }
+
+    function calcThcPerPackage() {
+      const weight  = parseGrams(document.getElementById('totalWeight').value);
+      const thcPct  = parsePct(document.getElementById('totalThc').value);
+      const output  = document.getElementById('totalThcPackage');
+
+      if (weight !== null && thcPct !== null) {
+        const mg = weight * (thcPct / 100) * 1000;
+        // Round to 2 decimal places, strip trailing zeros
+        output.value = parseFloat(mg.toFixed(2)) + ' mg';
+      } else {
+        output.value = '';
+      }
+    }
+
+    document.getElementById('totalWeight').addEventListener('input', calcThcPerPackage);
+    document.getElementById('totalThc').addEventListener('input',   calcThcPerPackage);
+
+    // ── Form submit ──────────────────────────────────────────────────────────
     document.getElementById('labelForm').addEventListener('submit', async function (e) {
       e.preventDefault();
       const btn     = document.getElementById('submitBtn');
@@ -315,11 +385,11 @@
       const btnText = document.getElementById('btnText');
       const status  = document.getElementById('status');
 
-      btn.disabled       = true;
+      btn.disabled        = true;
       spinner.classList.add('active');
-      btnText.textContent = 'Generating…';
-      status.textContent  = '';
-      status.className    = 'status';
+      btnText.textContent  = 'Generating…';
+      status.textContent   = '';
+      status.className     = 'status';
 
       try {
         const res = await fetch('/.netlify/functions/generate-labels', {
@@ -343,9 +413,9 @@
         status.textContent = `Error: ${err.message}`;
         status.className   = 'status error';
       } finally {
-        btn.disabled       = false;
+        btn.disabled        = false;
         spinner.classList.remove('active');
-        btnText.textContent = 'Generate Labels';
+        btnText.textContent  = 'Generate Labels';
       }
     });
   </script>
