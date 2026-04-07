@@ -12,16 +12,16 @@ async function parseMultipart(event) {
   const Busboy = require("busboy");
   return new Promise((resolve, reject) => {
     const fields = {};
-    const files  = {};
+    const files = {};
     const bb = Busboy({ headers: { "content-type": event.headers["content-type"] } });
     bb.on("field", (name, val) => { fields[name] = val; });
-    bb.on("file",  (name, stream) => {
+    bb.on("file", (name, stream) => {
       const chunks = [];
       stream.on("data", (d) => chunks.push(d));
-      stream.on("end",  ()  => { files[name] = Buffer.concat(chunks); });
+      stream.on("end", () => { files[name] = Buffer.concat(chunks); });
     });
     bb.on("finish", () => resolve({ fields, files }));
-    bb.on("error",  (e) => reject(e));
+    bb.on("error", (e) => reject(e));
     const body = event.isBase64Encoded
       ? Buffer.from(event.body, "base64")
       : Buffer.from(event.body);
@@ -33,84 +33,99 @@ async function parseMultipart(event) {
 // ── draw one label ───────────────────────────────────────────────────────────
 async function drawLabel(page, fonts, embeddedQr, data, W, H) {
   const { bold } = fonts;
-  const PAD = 0.05 * PTS;
+
+  // Margins: small outer pad, slightly more between QR and text column
+  const PAD = 0.05 * PTS;   // ~3.6pt outer margin
+  const GAP = PAD * 2;      // gap between QR and text block
 
   const {
     productName, unitWeight, totalWeight, totalThc, totalCbd,
-    expDate, lotNumber,
+    totalThcPackage, expDate, lotNumber,
   } = data;
 
-  // White bg
-  page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: rgb(1,1,1) });
+  // White background
+  page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: rgb(1, 1, 1) });
 
-  // QR
+  // QR — square, vertically centered with PAD margins
   const qrSize = H - 2 * PAD;
   if (embeddedQr) {
     page.drawPage(embeddedQr, { x: PAD, y: PAD, width: qrSize, height: qrSize });
   }
 
-  const textX   = PAD + qrSize + PAD * 2.5;
-  const nameSize = 7.2;
-  const keySize  = 5.0;
-  const valSize  = 5.5;
-  const rowH     = 7.0;
+  // Text column spans QR right-edge+GAP → label right edge - PAD
+  const textX = PAD + qrSize + GAP;
+  const textRight = W - PAD;          // right boundary for text
 
-  // Product name (always shown)
+  const nameSize = 7.2;
+  const keySize = 5.0;
+  const valSize = 5.5;
+  const rowH = 7.2;                // slightly more breathing room between rows
+
+  // ── Product name ──────────────────────────────────────────────────────────
   page.drawText(productName || "—", {
     x: textX, y: H - PAD - nameSize,
     size: nameSize, font: bold, color: NOIR,
+    maxWidth: textRight - textX,
   });
 
-  // THC mg/g
+  // ── THC display lines: "19.17%"  and  "191.7 mg/g" ───────────────────────
   let thcDisplay = null;
   if (totalThc) {
-    const pct  = parseFloat(totalThc.replace("%", "")) || 0;
-    const mgG  = Math.round(pct * 10 * 100) / 100;
-    thcDisplay = [`${totalThc}`, `${mgG}mg/g`];
+    const pct = parseFloat(totalThc.replace(/[^\d.]/g, "")) || 0;
+    const mgG = Math.round(pct * 10 * 100) / 100;
+    thcDisplay = [`${totalThc}`, `${mgG} mg/g`];
   }
 
-  // Lot# split if long
+  // ── Lot# — split if too long ───────────────────────────────────────────────
   let lotLines = null;
   if (lotNumber) {
     if (lotNumber.length > 14) {
-      const mid     = Math.floor(lotNumber.length / 2);
+      const mid = Math.floor(lotNumber.length / 2);
       const splitAt = lotNumber.lastIndexOf("-", mid + 3);
-      const idx     = splitAt > 0 ? splitAt : mid;
+      const idx = splitAt > 0 ? splitAt : mid;
       lotLines = [lotNumber.slice(0, idx), lotNumber.slice(idx)];
     } else {
       lotLines = [lotNumber];
     }
   }
 
-  // Only include rows where value exists
+  // ── Build row list (only non-empty values) ────────────────────────────────
   const rows = [
-    unitWeight  ? ["Unit Wt:",  [unitWeight]]            : null,
-    totalWeight ? ["Total Wt:", [totalWeight]]            : null,
-    thcDisplay  ? ["THC:",      thcDisplay]               : null,
-    totalCbd    ? ["CBD:",      [totalCbd]]               : null,
-    expDate     ? ["Exp:",      [expDate]]                : null,
-    lotLines    ? ["Lot#:",     lotLines]                 : null,
+    unitWeight ? ["Unit Wt: ", [unitWeight]] : null,
+    totalWeight ? ["Total Wt: ", [totalWeight]] : null,
+    thcDisplay ? ["THC: ", thcDisplay] : null,
+    totalCbd ? ["CBD: ", [totalCbd]] : null,
+    totalThcPackage ? ["THC/pkg: ", [totalThcPackage]] : null,
+    expDate ? ["Exp: ", [expDate]] : null,
+    lotLines ? ["Lot#: ", lotLines] : null,
   ].filter(Boolean);
 
   let curY = H - PAD - 18;
 
   for (const [label, lines] of rows) {
-    // Key
+    // Dynamically measure the key so value never overlaps
+    const keyW = bold.widthOfTextAtSize(label, keySize);
+
+    // Key label
     page.drawText(label, {
       x: textX, y: curY,
       size: keySize, font: bold, color: NOIR,
     });
-    // First value line
+
+    // First value line — starts immediately after key measurement
     page.drawText(lines[0], {
-      x: textX + 20, y: curY,
+      x: textX + keyW, y: curY,
       size: valSize, font: bold, color: NOIR,
+      maxWidth: textRight - (textX + keyW),
     });
     curY -= rowH;
-    // Second value line (if any)
+
+    // Second value line (e.g. mg/g line under THC%, or wrapped lot#)
     if (lines[1]) {
       page.drawText(lines[1], {
-        x: textX + 20, y: curY,
+        x: textX + keyW, y: curY,
         size: valSize, font: bold, color: NOIR,
+        maxWidth: textRight - (textX + keyW),
       });
       curY -= rowH;
     }
@@ -124,7 +139,7 @@ exports.handler = async (event) => {
   try {
     const { fields, files } = await parseMultipart(event);
 
-    const labelW = parseFloat(fields.labelWidth)  || DEFAULT_W_IN;
+    const labelW = parseFloat(fields.labelWidth) || DEFAULT_W_IN;
     const labelH = parseFloat(fields.labelHeight) || DEFAULT_H_IN;
     const W = labelW * PTS;
     const H = labelH * PTS;
@@ -132,12 +147,13 @@ exports.handler = async (event) => {
     // Trim all fields — empty string = treat as absent
     const data = {
       productName: (fields.productName || "").trim(),
-      unitWeight:  (fields.unitWeight  || "").trim(),
+      unitWeight: (fields.unitWeight || "").trim(),
       totalWeight: (fields.totalWeight || "").trim(),
-      totalThc:    (fields.totalThc    || "").trim(),
-      totalCbd:    (fields.totalCbd    || "").trim(),
-      expDate:     (fields.expDate     || "").trim(),
-      lotNumber:   (fields.lotNumber   || "").trim(),
+      totalThc: (fields.totalThc || "").trim(),
+      totalCbd: (fields.totalCbd || "").trim(),
+      totalThcPackage: (fields.totalThcPackage || "").trim(),
+      expDate: (fields.expDate || "").trim(),
+      lotNumber: (fields.lotNumber || "").trim(),
     };
 
     const qrPdfBytes = files.qrPdf;
@@ -147,8 +163,8 @@ exports.handler = async (event) => {
     const pageCount = qrSource.getPageCount();
 
     const outDoc = await PDFDocument.create();
-    const bold    = await outDoc.embedFont(StandardFonts.HelveticaBold);
-    const fonts   = { bold };
+    const bold = await outDoc.embedFont(StandardFonts.HelveticaBold);
+    const fonts = { bold };
 
     for (let i = 0; i < pageCount; i++) {
       const [embeddedQr] = await outDoc.embedPdf(qrSource, [i]);
